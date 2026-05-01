@@ -6,6 +6,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
 export function createAuth() {
   const db = createDb();
+  const isProd = env.NODE_ENV === "production";
 
   return betterAuth({
     database: drizzleAdapter(db, {
@@ -21,8 +22,9 @@ export function createAuth() {
     baseURL: env.BETTER_AUTH_URL,
     advanced: {
       defaultCookieAttributes: {
-        sameSite: "none",
-        secure: true,
+        // Local dev runs on plain http://localhost, so secure+none cookies are rejected.
+        sameSite: isProd ? "none" : "lax",
+        secure: isProd,
         httpOnly: true,
       },
     },

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3001",
+    "dev": "node scripts/dev.mjs",
     "build": "next build",
     "start": "next start"
   },
@@ -12,6 +12,7 @@
     "@test-evals/auth": "workspace:*",
     "@test-evals/env": "workspace:*",
     "@test-evals/ui": "workspace:*",
+    "date-fns": "^4.1.0",
     "babel-plugin-react-compiler": "^1.0.0",
     "better-auth": "catalog:",
     "dotenv": "catalog:",

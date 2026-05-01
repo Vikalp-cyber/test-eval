@@ -1,3 +1,4 @@
+import "./env-bootstrap.js";
 import { auth } from "@test-evals/auth";
 import { env } from "@test-evals/env/server";
 import { Hono } from "hono";
@@ -18,6 +19,12 @@ app.use(
 );
 
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
+
+import { runsRouter } from "./routes/runs.router.js";
+import { transcriptsRouter } from "./routes/transcripts.router.js";
+
+app.route("/api/v1/transcripts", transcriptsRouter);
+app.route("/api/v1/runs", runsRouter);
 
 app.get("/", (c) => {
   return c.text("OK");

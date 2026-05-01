@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: test-evals-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: healosbench
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "55432:5432"
+    volumes:
+      - test-evals-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d healosbench"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  test-evals-postgres-data:

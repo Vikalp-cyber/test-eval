@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { authClient } from "@/lib/auth-client";
+import { fetchRunsList } from "@/lib/eval-api";
 
 import Dashboard from "./dashboard";
 
@@ -17,11 +18,12 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  return (
-    <div>
-      <h1>Dashboard</h1>
-      <p>Welcome {session.user.name}</p>
-      <Dashboard session={session} />
-    </div>
-  );
+  let runs: Awaited<ReturnType<typeof fetchRunsList>> = [];
+  try {
+    runs = await fetchRunsList();
+  } catch {
+    runs = [];
+  }
+
+  return <Dashboard runs={runs} />;
 }
