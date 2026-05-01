@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
@@ -142,19 +142,30 @@ router.get("/:id", async (c) => {
   return c.json(run);
 });
 
+/**
+ * Resolve the Anthropic API key for this request.
+ *
+ * Priority: `x-anthropic-api-key` header (sent by dashboard / curl), then the
+ * server's `ANTHROPIC_API_KEY` env var. If neither is set, the route should
+ * 503 with a hint pointing the user back to the dashboard.
+ */
+function resolveApiKey(c: Context) {
+  const headerKey = c.req.header("x-anthropic-api-key")?.trim();
+  if (headerKey) return headerKey;
+  const envKey = process.env.ANTHROPIC_API_KEY?.trim();
+  return envKey || null;
+}
+
+const MISSING_KEY_MSG =
+  "Anthropic API key not provided. Open the dashboard, click 'API key', " +
+  "paste your key (starts with sk-ant-…), then start the run again.";
+
 // ── POST /api/v1/runs ────────────────────────────────────────────
 router.post("/", zValidator("json", startRunSchema), async (c) => {
   const { strategy, model, force, limit } = c.req.valid("json");
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return c.json(
-      {
-        error:
-          "ANTHROPIC_API_KEY is not set on the server. Add it to apps/server/.env and restart the dev script.",
-      },
-      503,
-    );
-  }
+  const apiKey = resolveApiKey(c);
+  if (!apiKey) return c.json({ error: MISSING_KEY_MSG }, 503);
 
   const strategyFn = STRATEGIES[strategy];
   if (!strategyFn) return c.json({ error: "Invalid strategy" }, 400);
@@ -166,7 +177,7 @@ router.post("/", zValidator("json", startRunSchema), async (c) => {
     transcriptIds,
     DATASET_DIR,
     GOLD_DIR,
-    force,
+    { force, apiKey },
   );
   return c.json({ runId, status: "started", total: transcriptIds.length }, 202);
 });
@@ -175,15 +186,8 @@ router.post("/", zValidator("json", startRunSchema), async (c) => {
 router.post("/:id/resume", async (c) => {
   const runId = c.req.param("id");
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return c.json(
-      {
-        error:
-          "ANTHROPIC_API_KEY is not set on the server. Add it to apps/server/.env and restart the dev script.",
-      },
-      503,
-    );
-  }
+  const apiKey = resolveApiKey(c);
+  if (!apiKey) return c.json({ error: MISSING_KEY_MSG }, 503);
 
   const run = await db.query.runs.findFirst({ where: eq(runs.id, runId) });
   if (!run) return c.json({ error: "Not found" }, 404);
@@ -203,7 +207,7 @@ router.post("/:id/resume", async (c) => {
     transcriptIds,
     DATASET_DIR,
     GOLD_DIR,
-    { force: false, existingRunId: runId },
+    { force: false, existingRunId: runId, apiKey },
   );
   return c.json({ runId, status: "resumed", total: transcriptIds.length }, 202);
 });

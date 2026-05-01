@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { formatRunDuration, type RunStatus } from "@/lib/eval-api";
+import { ApiKeyButton } from "@/components/api-key-button";
 
 type Run = {
   id: string;
@@ -46,6 +47,7 @@ export default function Dashboard({ runs }: { runs: Run[] }) {
           </div>
 
           <div className="flex items-center gap-3">
+            <ApiKeyButton />
             {selectedRuns.length === 2 && (
               <Link
                 href={`/dashboard/compare?run1=${selectedRuns[0]}&run2=${selectedRuns[1]}`}

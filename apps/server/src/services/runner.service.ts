@@ -28,10 +28,21 @@ export interface StartRunOptions {
   existingRunId?: string;
   /** Optional abort signal — letting the API kill in-flight runs cleanly. */
   signal?: AbortSignal;
+  /**
+   * Per-request Anthropic key (e.g. supplied by the dashboard). When omitted
+   * we fall back to the singleton `extractor` which uses
+   * `process.env.ANTHROPIC_API_KEY`.
+   */
+  apiKey?: string;
 }
 
 export class RunManager extends EventEmitter {
-  private extractor = new Extractor();
+  /**
+   * Default extractor — exposed as a public field so tests can swap in a mock
+   * via `(runner as any).extractor = ...`. Production callers that supply
+   * `opts.apiKey` get a fresh per-run Extractor instead.
+   */
+  extractor = new Extractor();
 
   // Concurrency
   private maxConcurrent = 5;
@@ -118,6 +129,11 @@ export class RunManager extends EventEmitter {
     }
     this.runLocks.add(runId);
 
+    // If the caller passed a per-request Anthropic key, build a one-off
+    // extractor for this run. Otherwise reuse the singleton (which may have
+    // been replaced by tests).
+    const extractor = opts.apiKey ? new Extractor(opts.apiKey) : this.extractor;
+
     void this.processRun({
       runId,
       strategyFn,
@@ -128,6 +144,7 @@ export class RunManager extends EventEmitter {
       goldDir,
       force: !!opts.force,
       signal: opts.signal,
+      extractor,
     })
       .catch(async (e) => {
         const message = e instanceof Error ? e.message : String(e);
@@ -161,6 +178,7 @@ export class RunManager extends EventEmitter {
     goldDir: string;
     force: boolean;
     signal?: AbortSignal;
+    extractor: Extractor;
   }) {
     const {
       runId,
@@ -172,6 +190,7 @@ export class RunManager extends EventEmitter {
       goldDir,
       force,
       signal,
+      extractor,
     } = params;
     const startedAt = Date.now();
 
@@ -251,7 +270,7 @@ export class RunManager extends EventEmitter {
             while (true) {
               if (signal?.aborted) return;
               try {
-                const result = await this.extractor.extract(transcript, strategy, {
+                const result = await extractor.extract(transcript, strategy, {
                   model,
                   signal,
                 });

@@ -1,8 +1,14 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { env } from "@test-evals/env/web";
+import {
+  apiKeyHeaders,
+  getStoredApiKey,
+  onApiKeyChange,
+} from "@/lib/api-key";
+import { ApiKeyButton } from "@/components/api-key-button";
 
 const strategies = ["zero_shot", "few_shot", "cot"] as const;
 
@@ -13,10 +19,26 @@ export function NewRunForm() {
   const [limit, setLimit] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [hasKey, setHasKey] = useState(false);
+
+  // Track whether a key is set so we can warn before submit and refresh after
+  // the user closes the API-key modal.
+  useEffect(() => {
+    setHasKey(!!getStoredApiKey());
+    return onApiKeyChange(() => setHasKey(!!getStoredApiKey()));
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (!getStoredApiKey()) {
+      setError(
+        "No Anthropic API key set. Click 'Set API key' above and paste your key first.",
+      );
+      return;
+    }
+
     setPending(true);
     try {
       const base = env.NEXT_PUBLIC_SERVER_URL.replace(/\/$/, "");
@@ -31,7 +53,10 @@ export function NewRunForm() {
 
       const res = await fetch(`${base}/api/v1/runs`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...apiKeyHeaders(),
+        },
         body: JSON.stringify(body),
       });
       if (!res.ok) {
@@ -52,6 +77,13 @@ export function NewRunForm() {
       onSubmit={onSubmit}
       className="space-y-5 rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md"
     >
+      <div className="flex items-center justify-between gap-3 pb-2 border-b border-white/5">
+        <div className="text-xs text-slate-500">
+          Anthropic key used: <span className="text-slate-300">browser-stored</span>
+        </div>
+        <ApiKeyButton />
+      </div>
+
       <div>
         <label htmlFor="strategy" className="block text-xs uppercase tracking-wider text-slate-500 mb-2">
           Strategy
@@ -94,6 +126,14 @@ export function NewRunForm() {
           className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white font-mono placeholder:text-slate-600"
         />
       </div>
+
+      {!hasKey && (
+        <p className="text-xs text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+          You haven&apos;t set an Anthropic API key yet. The run will fail until
+          you click <span className="font-medium">Set API key</span> above.
+        </p>
+      )}
+
       {error && (
         <p className="text-sm text-red-400 whitespace-pre-wrap">{error}</p>
       )}

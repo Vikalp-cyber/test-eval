@@ -11,6 +11,8 @@ import {
   fetchTranscript,
   formatRunDuration,
 } from "@/lib/eval-api";
+import { apiKeyHeaders, getStoredApiKey } from "@/lib/api-key";
+import { ApiKeyButton } from "@/components/api-key-button";
 
 function mergeIntervals(intervals: [number, number][]): [number, number][] {
   if (!intervals.length) return [];
@@ -440,17 +442,14 @@ export function RunDetailClient({ initialRun }: { initialRun: ApiRun }) {
               <div className="mt-1 whitespace-pre-wrap break-words text-red-200/90">
                 {run.error}
               </div>
-              {run.error.toLowerCase().includes("anthropic_api_key") && (
-                <ol className="mt-2 list-decimal pl-5 text-xs text-red-200/80 space-y-1">
-                  <li>
-                    Open <span className="font-mono">apps/server/.env</span> and set{" "}
-                    <span className="font-mono">ANTHROPIC_API_KEY=sk-ant-…</span>
-                  </li>
-                  <li>
-                    Restart <span className="font-mono">.\scripts\dev.ps1</span>
-                  </li>
-                  <li>Try the run again from the dashboard</li>
-                </ol>
+              {(run.error.toLowerCase().includes("anthropic") ||
+                run.error.toLowerCase().includes("api key")) && (
+                <div className="mt-3 flex items-center gap-3">
+                  <ApiKeyButton />
+                  <span className="text-xs text-red-200/80">
+                    Set / rotate your key, then click Resume below.
+                  </span>
+                </div>
               )}
             </div>
           )}
@@ -537,28 +536,41 @@ function ResumeButton({
   label?: string;
 }) {
   const [pending, setPending] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
   return (
-    <button
-      type="button"
-      disabled={pending}
-      onClick={async () => {
-        setPending(true);
-        try {
-          const base = env.NEXT_PUBLIC_SERVER_URL.replace(/\/$/, "");
-          const res = await fetch(`${base}/api/v1/runs/${runId}/resume`, {
-            method: "POST",
-          });
-          if (!res.ok) throw new Error(await res.text());
-          await onResumed();
-        } catch (e) {
-          console.error(e);
-        } finally {
-          setPending(false);
-        }
-      }}
-      className="rounded-full border border-indigo-500/40 bg-indigo-600/20 px-4 py-2 text-sm text-indigo-200 hover:bg-indigo-600/30 disabled:opacity-50"
-    >
-      {pending ? "…" : label}
-    </button>
+    <div className="space-y-2">
+      <button
+        type="button"
+        disabled={pending}
+        onClick={async () => {
+          setErr(null);
+          if (!getStoredApiKey()) {
+            setErr(
+              "No Anthropic API key set. Click 'Set API key' above first.",
+            );
+            return;
+          }
+          setPending(true);
+          try {
+            const base = env.NEXT_PUBLIC_SERVER_URL.replace(/\/$/, "");
+            const res = await fetch(`${base}/api/v1/runs/${runId}/resume`, {
+              method: "POST",
+              headers: { ...apiKeyHeaders() },
+            });
+            if (!res.ok) throw new Error(await res.text());
+            await onResumed();
+          } catch (e) {
+            console.error(e);
+            setErr(e instanceof Error ? e.message : "Failed to resume");
+          } finally {
+            setPending(false);
+          }
+        }}
+        className="rounded-full border border-indigo-500/40 bg-indigo-600/20 px-4 py-2 text-sm text-indigo-200 hover:bg-indigo-600/30 disabled:opacity-50"
+      >
+        {pending ? "…" : label}
+      </button>
+      {err && <p className="text-xs text-red-300">{err}</p>}
+    </div>
   );
 }

@@ -6,3 +6,6 @@ process.env.BETTER_AUTH_SECRET ||= "test-secret-1234567890-abcdef";
 process.env.BETTER_AUTH_URL ||= "http://localhost:3000";
 process.env.CORS_ORIGIN ||= "http://localhost:3101";
 process.env.ANTHROPIC_API_KEY ||= "sk-test";
+// Tests never connect to a real Postgres — skip the startup migration so we
+// don't try to spawn drizzle-kit or open a real connection.
+process.env.AUTO_MIGRATE = "false";
