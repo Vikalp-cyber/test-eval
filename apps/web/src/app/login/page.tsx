@@ -1,16 +1,19 @@
-"use client";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
-import { useState } from "react";
+import { fetchSessionFromHeaders } from "@/lib/server-session";
 
-import SignInForm from "@/components/sign-in-form";
-import SignUpForm from "@/components/sign-up-form";
+import LoginClient from "./login-client";
 
-export default function LoginPage() {
-  const [showSignIn, setShowSignIn] = useState(false);
+export default async function LoginPage() {
+  const incomingHeaders = await headers();
+  const session = await fetchSessionFromHeaders(incomingHeaders, "login");
 
-  return showSignIn ? (
-    <SignInForm onSwitchToSignUp={() => setShowSignIn(false)} />
-  ) : (
-    <SignUpForm onSwitchToSignIn={() => setShowSignIn(true)} />
-  );
+  // Already signed in → straight to the dashboard so we don't get stuck in
+  // a "succeed-then-bounce-back-to-login" loop after sign-up.
+  if (session?.user) {
+    redirect("/dashboard");
+  }
+
+  return <LoginClient />;
 }

@@ -2,7 +2,6 @@ import { useForm } from "@tanstack/react-form";
 import { Button } from "@test-evals/ui/components/button";
 import { Input } from "@test-evals/ui/components/input";
 import { Label } from "@test-evals/ui/components/label";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import z from "zod";
 
@@ -11,7 +10,6 @@ import { authClient } from "@/lib/auth-client";
 import Loader from "./loader";
 
 export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
-  const router = useRouter();
   const { isPending } = authClient.useSession();
 
   const form = useForm({
@@ -29,12 +27,11 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
         },
         {
           onSuccess: async () => {
-            if (process.env.NEXT_PUBLIC_AUTH_DEBUG === "true") {
-              const s = await authClient.getSession();
-              console.log("[auth-debug:web] signUp onSuccess getSession:", s);
-            }
-            router.push("/dashboard");
+            const s = await authClient.getSession();
+            console.log("[auth-debug:web] signUp onSuccess getSession:", s);
             toast.success("Sign up successful");
+            // Hard navigation so dashboard SSR re-runs with the fresh cookie.
+            window.location.assign("/dashboard");
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
