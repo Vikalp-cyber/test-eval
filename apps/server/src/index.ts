@@ -13,6 +13,7 @@ import { transcriptsRouter } from "./routes/transcripts.router.js";
 await runMigrationsOnStart();
 
 const app = new Hono();
+const authDebug = process.env.AUTH_DEBUG === "true";
 
 app.use(logger());
 app.use(
@@ -27,7 +28,31 @@ app.use(
   }),
 );
 
-app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
+app.on(["POST", "GET"], "/api/auth/*", async (c) => {
+  const url = new URL(c.req.url);
+  const cookie = c.req.header("cookie") ?? "";
+  const hasCookie = cookie.length > 0;
+  const origin = c.req.header("origin") ?? "-";
+
+  if (authDebug) {
+    console.log(
+      `[auth-debug] -> ${c.req.method} ${url.pathname} origin=${origin} hasCookie=${hasCookie}`,
+    );
+  }
+
+  const res = await auth.handler(c.req.raw);
+
+  if (authDebug) {
+    const hasSetCookie = !!res.headers.get("set-cookie");
+    console.log(
+      `[auth-debug] <- ${c.req.method} ${url.pathname} status=${res.status} setCookie=${hasSetCookie}`,
+    );
+  }
+
+  // Lightweight signal visible in browser devtools network tab.
+  res.headers.set("x-auth-debug-seen-cookie", hasCookie ? "1" : "0");
+  return res;
+});
 
 app.route("/api/v1/transcripts", transcriptsRouter);
 app.route("/api/v1/runs", runsRouter);

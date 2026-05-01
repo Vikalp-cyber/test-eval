@@ -13,6 +13,11 @@ export default async function DashboardPage() {
       throw: true,
     },
   });
+  if (process.env.AUTH_DEBUG === "true") {
+    console.log(
+      `[auth-debug:web] dashboard getSession user=${session?.user ? "present" : "null"}`,
+    );
+  }
 
   if (!session?.user) {
     redirect("/login");

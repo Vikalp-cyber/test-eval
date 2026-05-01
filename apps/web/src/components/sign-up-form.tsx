@@ -28,7 +28,11 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
           name: value.name,
         },
         {
-          onSuccess: () => {
+          onSuccess: async () => {
+            if (process.env.NEXT_PUBLIC_AUTH_DEBUG === "true") {
+              const s = await authClient.getSession();
+              console.log("[auth-debug:web] signUp onSuccess getSession:", s);
+            }
             router.push("/dashboard");
             toast.success("Sign up successful");
           },
